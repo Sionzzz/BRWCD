@@ -17,12 +17,6 @@ import theano
 from theano import tensor
 
 
-def svd_deepwalk_matrix(X, dim):
-    u, s, v = scipy.sparse.linalg.svds(X, dim, return_singular_vectors="u")
-    # return U \Sigma^{1/2}
-    return scipy.sparse.diags(np.sqrt(s)).dot(u.T).T
-
-
 def direct_compute_deepwalk_matrix(T, window, Neg_minus):
 
     n = T.shape[0]
@@ -69,10 +63,6 @@ def direct_compute_deepwalk_matrix_NetMF(T, window, Neg_minus, Vol):
     return sp.csr_matrix(Y)
 
 
-# ------------------------------------ 矩阵分解形式的deep walk ------------------------------------
-# ------------------------------------ 随机游走找远离节点~keyNodes ------------------------------------
-
-
 class BiasedWalk():
     def __init__(self, graph_file, dimension, feat_file, attWeight):
         self.graph = graph_file
@@ -108,10 +98,6 @@ class BiasedWalk():
                     feat_edge += 1
                     if f != int(f) and self.feat_type == 0:
                         self.feat_type = 1
-        # if self.feat_type == 0:
-        #     print("feat_type:one-hot")
-        # elif self.feat_type == 1:
-        #     print("feat_type:value")
 
         self.shape_mat = self.node_number + feat_number
 
@@ -121,9 +107,7 @@ class BiasedWalk():
         matrix_conn = scipy.sparse.lil_matrix((self.node_number, feat_number))
 
         sparsity = min(float(self.node_number) / self.G.number_of_edges(), 1)
-        # print("sparsity =", sparsity)
 
-        # 结构信息处理
         strWeight = 1-attWeight
         for e in self.G.edges():
             u = int(e[0])
@@ -134,10 +118,7 @@ class BiasedWalk():
 
                 matrix2[u, v] = strWeight
                 matrix2[v, u] = strWeight
-                # matrix2[u, v] = 1
-                # matrix2[v, u] = 1
 
-        # 属性信息处理
         for d in range(feat_number):
             nodeList = featList[d]
             for i in range(len(nodeList)):
@@ -150,14 +131,12 @@ class BiasedWalk():
                 connAtt = conn / len(nodeSet) if len(nodeSet) != 0 else 0
                 connSA = sparsity * connStr + (1 - sparsity) * connAtt
 
-                # matrix_conn[vi, d] = connSA if self.feat_type == 0 else feat[vi][d]
                 matrix_conn[vi, d] = connSA * (feat[vi][d] ** 1)
 
                 matrix1[vi, d] = feat[vi][d]
                 matrix2[vi, self.node_number + d] = attWeight * feat[vi][d]
                 matrix2[self.node_number + d, vi] = attWeight * feat[vi][d]
-                # matrix2[vi, self.node_number + d] = 1
-                # matrix2[self.node_number + d, vi] = 1
+
 
         self.matrix0 = scipy.sparse.csr_matrix(matrix0)
         self.matrix1 = scipy.sparse.csr_matrix(matrix1)
@@ -171,7 +150,6 @@ class BiasedWalk():
         U, Sigma, VT = randomized_svd(smat, n_components=self.dimension, n_iter=5, random_state=None)
         U = U * np.sqrt(Sigma)
         U = preprocessing.normalize(U, "l2")
-        # print('sparse-svd time', time.time() - t1)
         return U
 
     def trans_mat(self, matA, matB, matC, matConn, attWeight):
@@ -262,55 +240,14 @@ def main(dataset, aweight):
     features_matrix = model.trans_mat(model.matrix0, model.matrix1, model.matrix2, model.matrix_conn, aweight)
     t_2 = time.time()
 
-    # print('---------')
     print('total time', t_2 - t_0)
-    # print('sparse NE time', t_2 - t_1)
 
     model.save_embedding(args.output + str(aweight), features_matrix)
     model.save_embedding(args.output, features_matrix)
-    # print('save embedding done')
 
 
 if __name__ == '__main__':
-    from EX import *
-    import csv
-    # fileList = ['2k', '4k', '6k', '8k', '10k']
-    # wList = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    # for d in fileList:
-    #     print(d)
-    #     nmiMax = 0
-    #     wMax = -1
-    #     dataset = 'artificial datasets/' + d
-    #     for aw in wList:
-    #         main(dataset, aw)
-    #         nmi, ari = ex_result(dataset, 'emb/' + dataset + '.emb')
-    #         if nmiMax < nmi:
-    #             nmiMax = nmi
-    #             ariMax = ari
-    #             wMax = aw
-    #     print('weight =', wMax)
-    #     print('nmi =', nmiMax)
-    #     print()
-
-    # varing w
-    fileList = ['2k', '4k', '6k', '8k', '10k']
-    wList = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    rows = [['dataset'] + list(map(str, wList))]
-
-    for d in fileList:
-        print(d)
-        dataset = 'artificial datasets/' + d
-        rowNMI = [d]
-        for aw in wList:
-            main(dataset, aw)
-            nmi, ari = ex_result(dataset, 'emb/' + dataset + '.emb')
-            print('nmi =', nmi)
-            rowNMI.append(nmi)
-        rows.append(rowNMI)
-
-    with open('emb/results.csv', 'w', newline='') as f:
-        f_csv = csv.writer(f)
-        f_csv.writerows(rows)
+    main(dataset, 0.5)
 
 
 
